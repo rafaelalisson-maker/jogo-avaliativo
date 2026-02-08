@@ -6,7 +6,7 @@ screen = pygame.display.set_mode((1024, 1024))
 pygame.display.set_caption("A CANETADA")
 
 fundo = pygame.image.load("fundo.png")
-jogador = pygame.image.load("C:/Users/USER/Documents/jogo-avaliativo/Ganoel Mones.png")
+jogador = pygame.image.load("Ganoel Mones.png")
 menu_jogo = pygame.image.load("menu.png")
 
 def menu():
@@ -23,17 +23,24 @@ def menu():
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 if botao_jogar.collidepoint(evento.pos):
-                    return 
+                    return
 
         pygame.display.flip()
-
 
 rect = jogador.get_rect()
 rect.center = (512, 650)
 velocidade = 5
-running = True
+
+paredes = [
+    pygame.Rect(0, 0, 1024, 40),
+    pygame.Rect(0, 0, 40, 1024),
+    pygame.Rect(0, 984, 1024, 40),
+    pygame.Rect(984, 0, 40, 1024),
+
+]
 
 menu()
+running = True
 
 while running:
     clock.tick(60)
@@ -44,17 +51,37 @@ while running:
 
     teclas = pygame.key.get_pressed()
 
+    dx = 0
     if teclas[pygame.K_a]:
-        rect.x -= velocidade
+        dx = -velocidade
     if teclas[pygame.K_d]:
-        rect.x += velocidade
+        dx = velocidade
+
+    rect.x += dx
+    for parede in paredes:
+        if rect.colliderect(parede):
+            if dx > 0:
+                rect.right = parede.left
+            if dx < 0:
+                rect.left = parede.right
+
+    dy = 0
     if teclas[pygame.K_w]:
-        rect.y -= velocidade
+        dy = -velocidade
     if teclas[pygame.K_s]:
-        rect.y += velocidade
+        dy = velocidade
+
+    rect.y += dy
+    for parede in paredes:
+        if rect.colliderect(parede):
+            if dy > 0:
+                rect.bottom = parede.top
+            if dy < 0:
+                rect.top = parede.bottom
 
     screen.blit(fundo, (0, 0))
     screen.blit(jogador, rect)
+
 
     pygame.display.flip()
 
