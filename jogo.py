@@ -12,6 +12,11 @@ menu_jogo = pygame.image.load("menu.png")
 inimigo_amarelo_img = pygame.image.load("Livro amarelo inimigo.png")
 inimigo_vermelho_img = pygame.image.load("Livro vermelho.png")
 
+vida_jogador = 100
+dano_inimigo = 20
+ultimo_dano = 0
+tempo_invencibilidade = 1000  # 1 segundo
+
 def menu():
     botao_jogar = pygame.Rect(380, 520, 260, 80)
 
@@ -158,9 +163,17 @@ while running:
     screen.blit(fundo, (0, 0))
     screen.blit(jogador, rect)
 
-    for inimigo in inimigos:
+    for inimigo in inimigos[:]:
         inimigo.mover(rect)
         inimigo.desenhar(screen)
+
+        if rect.colliderect(inimigo.rect):
+            if tempo_atual - ultimo_dano > tempo_invencibilidade:
+                vida_jogador -= dano_inimigo
+                ultimo_dano = tempo_atual
+
+                if vida_jogador <= 0:
+                    running = False
 
     for tiro in tiros[:]:
         tiro.mover()
