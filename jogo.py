@@ -34,11 +34,7 @@ class Projetil:
         self.direcao = direcao
 
     def mover(self):
-        if self.direcao == "cima":
-            self.rect.y -= self.velocidade
-        elif self.direcao == "baixo":
-            self.rect.y += self.velocidade
-        elif self.direcao == "esq":
+        if self.direcao == "esq":
             self.rect.x -= self.velocidade
         elif self.direcao == "dir":
             self.rect.x += self.velocidade
@@ -48,15 +44,21 @@ class Projetil:
 
 rect = jogador.get_rect()
 rect.center = (512, 650)
+
 velocidade = 5
-direcao_jogador = "baixo"
+gravidade = 1
+forca_pulo = -20
+vel_y = 0
+no_chao = False
+
+direcao_jogador = "dir"
 
 tiros = []
 
 paredes = [
+    pygame.Rect(0, 984, 1024, 40),
     pygame.Rect(0, 0, 1024, 40),
     pygame.Rect(0, 0, 40, 1024),
-    pygame.Rect(0, 984, 1024, 40),
     pygame.Rect(984, 0, 40, 1024),
 ]
 
@@ -71,9 +73,14 @@ while running:
             running = False
 
         if evento.type == pygame.KEYDOWN:
-            if evento.key == pygame.K_SPACE:
+            # TIRO
+            if evento.key == pygame.K_f:
                 tiro = Projetil(rect.centerx, rect.centery, direcao_jogador)
                 tiros.append(tiro)
+
+            if evento.key == pygame.K_SPACE and no_chao:
+                vel_y = forca_pulo
+                no_chao = False
 
     teclas = pygame.key.get_pressed()
 
@@ -93,21 +100,19 @@ while running:
             if dx < 0:
                 rect.left = parede.right
 
-    dy = 0
-    if teclas[pygame.K_w]:
-        dy = -velocidade
-        direcao_jogador = "cima"
-    if teclas[pygame.K_s]:
-        dy = velocidade
-        direcao_jogador = "baixo"
+    vel_y += gravidade
+    rect.y += vel_y
 
-    rect.y += dy
+    no_chao = False
     for parede in paredes:
         if rect.colliderect(parede):
-            if dy > 0:
+            if vel_y > 0:
                 rect.bottom = parede.top
-            if dy < 0:
+                vel_y = 0
+                no_chao = True
+            elif vel_y < 0:
                 rect.top = parede.bottom
+                vel_y = 0
 
     screen.blit(fundo, (0, 0))
     screen.blit(jogador, rect)
