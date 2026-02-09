@@ -20,15 +20,18 @@ vida_jogador = 100
 dano_inimigo = 20
 ultimo_dano = 0
 tempo_invencibilidade = 1000
-pontuacao = 0
 
+dano_projetil = 20
+tempo_dano_projetil = 0
+intervalo_dano_projetil = 10000
+
+pontuacao = 0
 nivel_dificuldade = 1
 tempo_dificuldade = 0
 intervalo_dificuldade = 15000
 
 def menu():
     botao_jogar = pygame.Rect(380, 520, 260, 80)
-
     while True:
         clock.tick(60)
         screen.blit(menu_jogo, (0, 0))
@@ -37,7 +40,6 @@ def menu():
             if evento.type == pygame.QUIT:
                 pygame.quit()
                 exit()
-
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 if botao_jogar.collidepoint(evento.pos):
                     return
@@ -50,21 +52,14 @@ def fim_de_jogo():
         f"Pontuação Final: {pontuacao}", True, (255, 255, 255)
     )
 
-    texto_rect = texto.get_rect(center=(512, 450))
-    pontos_rect = pontos_finais.get_rect(center=(512, 550))
-
     while True:
         clock.tick(60)
         screen.blit(fundo, (0, 0))
-        screen.blit(texto, texto_rect)
-        screen.blit(pontos_finais, pontos_rect)
+        screen.blit(texto, texto.get_rect(center=(512, 450)))
+        screen.blit(pontos_finais, pontos_finais.get_rect(center=(512, 550)))
 
         for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                pygame.quit()
-                exit()
-
-            if evento.type == pygame.KEYDOWN:
+            if evento.type in (pygame.QUIT, pygame.KEYDOWN):
                 pygame.quit()
                 exit()
 
@@ -79,7 +74,7 @@ class Projetil:
     def mover(self):
         if self.direcao == "esq":
             self.rect.x -= self.velocidade
-        elif self.direcao == "dir":
+        else:
             self.rect.x += self.velocidade
 
     def desenhar(self, tela):
@@ -91,6 +86,7 @@ class Inimigo:
         self.rect = self.image.get_rect(topleft=(x, y))
         self.velocidade = 2 + nivel_dificuldade
         self.plataforma = plataforma
+        self.vida = 40 + (nivel_dificuldade * 10)
 
     def mover(self, jogador_rect):
         if jogador_rect.centerx < self.rect.centerx:
@@ -98,10 +94,8 @@ class Inimigo:
         elif jogador_rect.centerx > self.rect.centerx:
             self.rect.x += self.velocidade
 
-        if self.rect.left < self.plataforma.left:
-            self.rect.left = self.plataforma.left
-        if self.rect.right > self.plataforma.right:
-            self.rect.right = self.plataforma.right
+        self.rect.left = max(self.rect.left, self.plataforma.left)
+        self.rect.right = min(self.rect.right, self.plataforma.right)
 
     def desenhar(self, tela):
         tela.blit(self.image, self.rect)
@@ -121,9 +115,7 @@ def spawn_inimigo():
     inimigo.rect.bottom = plataforma.top
     inimigos.append(inimigo)
 
-rect = jogador.get_rect()
-rect.midbottom = (512, 780)
-
+rect = jogador.get_rect(midbottom=(512, 780))
 velocidade = 5
 gravidade = 1
 forca_pulo = -20
@@ -150,13 +142,15 @@ while running:
     clock.tick(60)
     tempo_atual = pygame.time.get_ticks()
 
+    if tempo_atual - tempo_dano_projetil > intervalo_dano_projetil:
+        dano_projetil += 10
+        tempo_dano_projetil = tempo_atual
+
     if tempo_atual - tempo_dificuldade > intervalo_dificuldade:
         nivel_dificuldade += 1
         tempo_dificuldade = tempo_atual
-
         if intervalo_spawn > 600:
             intervalo_spawn -= 300
-
         dano_inimigo += 5
 
     if tempo_atual - tempo_spawn > intervalo_spawn:
@@ -166,27 +160,18 @@ while running:
     for evento in pygame.event.get():
         if evento.type == pygame.QUIT:
             running = False
-
         if evento.type == pygame.KEYDOWN:
             if evento.key == pygame.K_f:
                 tiros.append(Projetil(rect.centerx, rect.centery, direcao_jogador))
-
             if evento.key == pygame.K_w and no_chao:
                 vel_y = forca_pulo
                 no_chao = False
 
     teclas = pygame.key.get_pressed()
-
-    dx = 0
-    if teclas[pygame.K_a]:
-        dx = -velocidade
-        direcao_jogador = "esq"
-    if teclas[pygame.K_d]:
-        dx = velocidade
-        direcao_jogador = "dir"
+    dx = (-velocidade if teclas[pygame.K_a] else velocidade if teclas[pygame.K_d] else 0)
+    direcao_jogador = "esq" if dx < 0 else "dir" if dx > 0 else direcao_jogador
 
     rect.x += dx
-
     vel_y += gravidade
     rect.y += vel_y
 
@@ -222,9 +207,11 @@ while running:
 
         for inimigo in inimigos[:]:
             if tiro.rect.colliderect(inimigo.rect):
+                inimigo.vida -= dano_projetil
                 tiros.remove(tiro)
-                inimigos.remove(inimigo)
-                pontuacao += 10
+                if inimigo.vida <= 0:
+                    inimigos.remove(inimigo)
+                    pontuacao += 10
                 break
 
         tiro.desenhar(screen)
@@ -232,8 +219,8 @@ while running:
     screen.blit(fonte_vida.render(f"Vida: {vida_jogador}", True, (255, 0, 0)), (20, 20))
     screen.blit(fonte_pontos.render(f"Pontos: {pontuacao}", True, (255, 255, 255)), (20, 60))
     screen.blit(
-        fonte_pontos.render(f"Dificuldade: {nivel_dificuldade}", True, (255, 255, 0)),
-        (20, 100)
+        fonte_pontos.render(f"Dano do Tiro: {dano_projetil}", True, (255, 200, 0)),
+        (20, 100),
     )
 
     pygame.display.flip()
