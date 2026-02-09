@@ -6,17 +6,26 @@ clock = pygame.time.Clock()
 screen = pygame.display.set_mode((1024, 1024))
 pygame.display.set_caption("A CANETADA")
 
-# ===== IMAGENS =====
 fundo = pygame.image.load("fundo.png")
 jogador = pygame.image.load("Ganoel Mones.png")
 menu_jogo = pygame.image.load("menu.png")
 inimigo_amarelo_img = pygame.image.load("Livro amarelo inimigo.png")
 inimigo_vermelho_img = pygame.image.load("Livro vermelho.png")
 
-# ===== FONTE =====
-fonte = pygame.font.SysFont(None, 36)
+fonte_vida = pygame.font.SysFont(None, 36)
+fonte_pontos = pygame.font.SysFont(None, 40)
+fonte_titulo = pygame.font.SysFont(None, 80)
 
-# ===== MENU =====
+vida_jogador = 100
+dano_inimigo = 20
+ultimo_dano = 0
+tempo_invencibilidade = 1000
+pontuacao = 0
+
+nivel_dificuldade = 1
+tempo_dificuldade = 0
+intervalo_dificuldade = 15000
+
 def menu():
     botao_jogar = pygame.Rect(380, 520, 260, 80)
 
@@ -35,7 +44,32 @@ def menu():
 
         pygame.display.flip()
 
-# ===== PROJÉTIL =====
+def fim_de_jogo():
+    texto = fonte_titulo.render("FIM DE JOGO", True, (255, 0, 0))
+    pontos_finais = fonte_pontos.render(
+        f"Pontuação Final: {pontuacao}", True, (255, 255, 255)
+    )
+
+    texto_rect = texto.get_rect(center=(512, 450))
+    pontos_rect = pontos_finais.get_rect(center=(512, 550))
+
+    while True:
+        clock.tick(60)
+        screen.blit(fundo, (0, 0))
+        screen.blit(texto, texto_rect)
+        screen.blit(pontos_finais, pontos_rect)
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+            if evento.type == pygame.KEYDOWN:
+                pygame.quit()
+                exit()
+
+        pygame.display.flip()
+
 class Projetil:
     def __init__(self, x, y, direcao):
         self.rect = pygame.Rect(x, y, 10, 10)
@@ -51,12 +85,12 @@ class Projetil:
     def desenhar(self, tela):
         pygame.draw.rect(tela, (255, 0, 0), self.rect)
 
-# ===== INIMIGO =====
 class Inimigo:
-    def __init__(self, x, y, imagem):
+    def __init__(self, x, y, imagem, plataforma):
         self.image = imagem
         self.rect = self.image.get_rect(topleft=(x, y))
-        self.velocidade = 2
+        self.velocidade = 2 + nivel_dificuldade
+        self.plataforma = plataforma
 
     def mover(self, jogador_rect):
         if jogador_rect.centerx < self.rect.centerx:
@@ -64,18 +98,29 @@ class Inimigo:
         elif jogador_rect.centerx > self.rect.centerx:
             self.rect.x += self.velocidade
 
+        if self.rect.left < self.plataforma.left:
+            self.rect.left = self.plataforma.left
+        if self.rect.right > self.plataforma.right:
+            self.rect.right = self.plataforma.right
+
     def desenhar(self, tela):
         tela.blit(self.image, self.rect)
 
-# ===== SPAWN INIMIGO =====
 def spawn_inimigo():
-    lado = random.choice(["esq", "dir"])
-    x = -60 if lado == "esq" else 1084
-    y = 720
+    plataforma = random.choice(prateleiras)
     imagem = random.choice([inimigo_amarelo_img, inimigo_vermelho_img])
-    inimigos.append(Inimigo(x, y, imagem))
+    lado = random.choice(["esq", "dir"])
 
-# ===== JOGADOR =====
+    inimigo = Inimigo(0, 0, imagem, plataforma)
+
+    if lado == "esq":
+        inimigo.rect.left = plataforma.left
+    else:
+        inimigo.rect.right = plataforma.right
+
+    inimigo.rect.bottom = plataforma.top
+    inimigos.append(inimigo)
+
 rect = jogador.get_rect()
 rect.midbottom = (512, 780)
 
@@ -86,37 +131,34 @@ vel_y = 0
 no_chao = False
 direcao_jogador = "dir"
 
-# ===== VIDA =====
-vida = 100
-tempo_dano = 0
-cooldown_dano = 1000
-
-# ===== LISTAS =====
 tiros = []
 inimigos = []
 
-# ===== SPAWN =====
 tempo_spawn = 0
 intervalo_spawn = 2000
 
-# ===== PAREDES =====
-paredes = [
-    pygame.Rect(0, 780, 1024, 40),
-    pygame.Rect(0, 0, 1024, 40),
-    pygame.Rect(0, 0, 40, 1024),
-    pygame.Rect(984, 0, 40, 1024),
+prateleiras = [
+    pygame.Rect(15, 860, 275, 20),
+    pygame.Rect(320, 763, 350, 18),
+    pygame.Rect(720, 860, 275, 20),
 ]
 
-# ===== INICIAR =====
 menu()
 running = True
 
-# ===== LOOP PRINCIPAL =====
 while running:
     clock.tick(60)
     tempo_atual = pygame.time.get_ticks()
 
-    # SPAWN INIMIGOS
+    if tempo_atual - tempo_dificuldade > intervalo_dificuldade:
+        nivel_dificuldade += 1
+        tempo_dificuldade = tempo_atual
+
+        if intervalo_spawn > 600:
+            intervalo_spawn -= 300
+
+        dano_inimigo += 5
+
     if tempo_atual - tempo_spawn > intervalo_spawn:
         spawn_inimigo()
         tempo_spawn = tempo_atual
@@ -135,7 +177,6 @@ while running:
 
     teclas = pygame.key.get_pressed()
 
-    # MOVIMENTO
     dx = 0
     if teclas[pygame.K_a]:
         dx = -velocidade
@@ -145,50 +186,36 @@ while running:
         direcao_jogador = "dir"
 
     rect.x += dx
-    for parede in paredes:
-        if rect.colliderect(parede):
-            if dx > 0:
-                rect.right = parede.left
-            if dx < 0:
-                rect.left = parede.right
 
-    # GRAVIDADE
     vel_y += gravidade
     rect.y += vel_y
 
     no_chao = False
-    for parede in paredes:
-        if rect.colliderect(parede):
-            if vel_y > 0:
-                rect.bottom = parede.top
-                vel_y = 0
-                no_chao = True
-            elif vel_y < 0:
-                rect.top = parede.bottom
-                vel_y = 0
+    for plataforma in prateleiras:
+        if rect.colliderect(plataforma) and vel_y > 0:
+            rect.bottom = plataforma.top
+            vel_y = 0
+            no_chao = True
 
-    # ===== DESENHO (ORDEM CORRETA) =====
+    if rect.top > 1024:
+        fim_de_jogo()
+
     screen.blit(fundo, (0, 0))
     screen.blit(jogador, rect)
 
-    # INIMIGOS + DANO
-    for inimigo in inimigos:
+    for inimigo in inimigos[:]:
         inimigo.mover(rect)
         inimigo.desenhar(screen)
 
         if rect.colliderect(inimigo.rect):
-            if tempo_atual - tempo_dano > cooldown_dano:
-                vida -= 10
-                tempo_dano = tempo_atual
+            if tempo_atual - ultimo_dano > tempo_invencibilidade:
+                vida_jogador -= dano_inimigo
+                ultimo_dano = tempo_atual
+                if vida_jogador <= 0:
+                    fim_de_jogo()
 
-    # VIDA
-    texto_vida = fonte.render(f"Vida: {vida}", True, (255, 0, 0))
-    screen.blit(texto_vida, (20, 20))
-
-    # TIROS
     for tiro in tiros[:]:
         tiro.mover()
-
         if not screen.get_rect().colliderect(tiro.rect):
             tiros.remove(tiro)
             continue
@@ -197,13 +224,17 @@ while running:
             if tiro.rect.colliderect(inimigo.rect):
                 tiros.remove(tiro)
                 inimigos.remove(inimigo)
+                pontuacao += 10
                 break
 
         tiro.desenhar(screen)
 
-    if vida <= 0:
-        print("GAME OVER")
-        running = False
+    screen.blit(fonte_vida.render(f"Vida: {vida_jogador}", True, (255, 0, 0)), (20, 20))
+    screen.blit(fonte_pontos.render(f"Pontos: {pontuacao}", True, (255, 255, 255)), (20, 60))
+    screen.blit(
+        fonte_pontos.render(f"Dificuldade: {nivel_dificuldade}", True, (255, 255, 0)),
+        (20, 100)
+    )
 
     pygame.display.flip()
 
