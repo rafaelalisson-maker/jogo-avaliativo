@@ -16,6 +16,8 @@ vida_jogador = 100
 dano_inimigo = 20
 ultimo_dano = 0
 tempo_invencibilidade = 1000  # 1 segundo
+pontuacao = 0
+fonte_pontos = pygame.font.SysFont(None, 40)
 
 def menu():
     botao_jogar = pygame.Rect(380, 520, 260, 80)
@@ -105,6 +107,34 @@ paredes = [
 ]
 
 menu()
+def fim_de_jogo():
+    fonte_titulo = pygame.font.SysFont(None, 80)
+    fonte_pontos = pygame.font.SysFont(None, 50)
+
+    texto = fonte_titulo.render("FIM DE JOGO", True, (255, 0, 0))
+    pontos_finais = fonte_pontos.render(
+        f"Pontuação Final: {pontuacao}", True, (255, 255, 255)
+    )
+
+    texto_rect = texto.get_rect(center=(512, 450))
+    pontos_rect = pontos_finais.get_rect(center=(512, 550))
+
+    while True:
+        clock.tick(60)
+        screen.blit(fundo, (0, 0))
+        screen.blit(texto, texto_rect)
+        screen.blit(pontos_finais, pontos_rect)
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+            if evento.type == pygame.KEYDOWN:
+                pygame.quit()
+                exit()
+
+        pygame.display.flip()
 running = True
 
 while running:
@@ -173,7 +203,7 @@ while running:
                 ultimo_dano = tempo_atual
 
                 if vida_jogador <= 0:
-                    running = False
+                 fim_de_jogo()
 
     for tiro in tiros[:]:
         tiro.mover()
@@ -184,9 +214,10 @@ while running:
 
         for inimigo in inimigos[:]:
             if tiro.rect.colliderect(inimigo.rect):
-                tiros.remove(tiro)
-                inimigos.remove(inimigo)
-                break
+             tiros.remove(tiro)
+             inimigos.remove(inimigo)
+             pontuacao += 10
+             break
 
         tiro.desenhar(screen)
 
